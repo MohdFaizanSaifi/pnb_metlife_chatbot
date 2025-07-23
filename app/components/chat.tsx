@@ -161,7 +161,7 @@ const Chat = ({
         return [
           {
             role: "assistant",
-            text: "I am PNB MetLife Insurance Plans assistant that can help you with family plans, group insurance plans and rider plans?",
+            text: "I am PNB MetLife Insurance Plans assistant that can help you with family plans, group insurance plans and rider plans",
           },
         ];
       }

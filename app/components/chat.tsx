@@ -4,23 +4,48 @@ import React, { useState, useEffect, useRef } from "react";
 import styles from "./chat.module.css";
 import { AssistantStream } from "openai/lib/AssistantStream";
 import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 // @ts-expect-error - no types for this yet
 import { AssistantStreamEvent } from "openai/resources/beta/assistants/assistants";
 import { RequiredActionFunctionToolCall } from "openai/resources/beta/threads/runs/runs";
 
+type Person = {
+  name: string;
+  email: string;
+  phone_number: string; // Changed from phoneNumber to phone_number
+  age: number;
+  plan_summary: string;
+};
+
 type MessageProps = {
   role: "user" | "assistant" | "code";
   text: string;
+  isTyping?: boolean; // Add isTyping to MessageProps
 };
 
 const UserMessage = ({ text }: { text: string }) => {
   return <div className={styles.userMessage}>{text}</div>;
 };
 
-const AssistantMessage = ({ text }: { text: string }) => {
+const AssistantMessage = ({
+  text,
+  isTyping,
+}: {
+  text: string;
+  isTyping?: boolean;
+}) => {
+  // Regex to match the reference pattern like 【4:0†bima_yojana_micro-insurance_part_1.md】.
+  // This pattern matches a Chinese opening square bracket, followed by any characters
+  // that are not a Chinese closing square bracket, and then the Chinese closing square bracket.
+  const cleanedText = text.replace(/【[^】]*】/g, "");
+
   return (
     <div className={styles.assistantMessage}>
-      <Markdown>{text}</Markdown>
+      {isTyping ? (
+        <span className={styles.typingIndicator}>...</span>
+      ) : (
+        <Markdown remarkPlugins={[remarkGfm]}>{cleanedText}</Markdown>
+      )}
     </div>
   );
 };
@@ -38,12 +63,12 @@ const CodeMessage = ({ text }: { text: string }) => {
   );
 };
 
-const Message = ({ role, text }: MessageProps) => {
+const Message = ({ role, text, isTyping }: MessageProps) => {
   switch (role) {
     case "user":
       return <UserMessage text={text} />;
     case "assistant":
-      return <AssistantMessage text={text} />;
+      return <AssistantMessage text={text} isTyping={isTyping} />;
     case "code":
       return <CodeMessage text={text} />;
     default:
@@ -58,7 +83,28 @@ type ChatProps = {
 };
 
 const Chat = ({
-  functionCallHandler = () => Promise.resolve(""), // default to return empty string
+  functionCallHandler = async (call: RequiredActionFunctionToolCall) => {
+    if (call?.function?.name === "save_to_google_sheet") {
+      console.log("Tool is called ");
+      const args: Person = JSON.parse(call.function.arguments);
+      const response = await fetch("/api/google-sheets", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: args.name,
+          email: args.email,
+          phone_number: args.phone_number, // Changed from args.phoneNumber to args.phone_number
+          age: args.age,
+          // Removed plan_summary from the body, as it will be handled by the assistant's response.
+        }),
+      });
+      const data = await response.json();
+      return JSON.stringify(data);
+    }
+    return ""; // default to return empty string
+  },
 }: ChatProps) => {
   const [userInput, setUserInput] = useState("");
   const [messages, setMessages] = useState([]);
@@ -128,6 +174,8 @@ const Chat = ({
     ]);
     setUserInput("");
     setInputDisabled(true);
+    // Add a typing indicator for the assistant
+    appendMessage("assistant", "", true);
     scrollToBottom();
   };
 
@@ -135,14 +183,25 @@ const Chat = ({
 
   // textCreated - create new assistant message
   const handleTextCreated = () => {
-    appendMessage("assistant", "");
+    // Remove typing indicator when assistant starts responding
+    setMessages((prevMessages) => {
+      const lastMessage = prevMessages[prevMessages.length - 1];
+      if (lastMessage && lastMessage.isTyping) {
+        return [
+          ...prevMessages.slice(0, -1),
+          { ...lastMessage, isTyping: false, text: "" },
+        ];
+      } else {
+        return [...prevMessages, { role: "assistant", text: "" }];
+      }
+    });
   };
 
   // textDelta - append text to last assistant message
   const handleTextDelta = (delta) => {
     if (delta.value != null) {
       appendToLastMessage(delta.value);
-    };
+    }
     if (delta.annotations != null) {
       annotateLastMessage(delta.annotations);
     }
@@ -151,7 +210,7 @@ const Chat = ({
   // imageFileDone - show image in chat
   const handleImageFileDone = (image) => {
     appendToLastMessage(`\n![${image.file_id}](/api/files/${image.file_id})\n`);
-  }
+  };
 
   // toolCallCreated - log new tool call
   const toolCallCreated = (toolCall) => {
@@ -176,6 +235,13 @@ const Chat = ({
     const toolCallOutputs = await Promise.all(
       toolCalls.map(async (toolCall) => {
         const result = await functionCallHandler(toolCall);
+        //         appendMessage(
+        //           "code",
+        //           `Tool Call: ${toolCall.function.name}(
+        // ${toolCall.function.arguments}
+        // )
+        // Result: ${result}`
+        //         );
         return { output: result, tool_call_id: toolCall.id };
       })
     );
@@ -225,8 +291,8 @@ const Chat = ({
     });
   };
 
-  const appendMessage = (role, text) => {
-    setMessages((prevMessages) => [...prevMessages, { role, text }]);
+  const appendMessage = (role, text, isTyping = false) => {
+    setMessages((prevMessages) => [...prevMessages, { role, text, isTyping }]);
   };
 
   const annotateLastMessage = (annotations) => {
@@ -236,23 +302,27 @@ const Chat = ({
         ...lastMessage,
       };
       annotations.forEach((annotation) => {
-        if (annotation.type === 'file_path') {
+        if (annotation.type === "file_path") {
           updatedLastMessage.text = updatedLastMessage.text.replaceAll(
             annotation.text,
             `/api/files/${annotation.file_path.file_id}`
           );
         }
-      })
+      });
       return [...prevMessages.slice(0, -1), updatedLastMessage];
     });
-    
-  }
+  };
 
   return (
     <div className={styles.chatContainer}>
       <div className={styles.messages}>
         {messages.map((msg, index) => (
-          <Message key={index} role={msg.role} text={msg.text} />
+          <Message
+            key={index}
+            role={msg.role}
+            text={msg.text}
+            isTyping={msg.isTyping}
+          />
         ))}
         <div ref={messagesEndRef} />
       </div>

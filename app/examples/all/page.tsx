@@ -5,17 +5,30 @@ import styles from "./page.module.css";
 import Chat from "../../components/chat";
 import WeatherWidget from "../../components/weather-widget";
 import { getWeather } from "../../utils/weather";
+import { save_to_google_sheet } from "../../utils/google_sheet_api";
 import FileViewer from "../../components/file-viewer";
 
 const FunctionCalling = () => {
   const [weatherData, setWeatherData] = useState({});
 
   const functionCallHandler = async (call) => {
-    if (call?.function?.name !== "get_weather") return;
-    const args = JSON.parse(call.function.arguments);
-    const data = getWeather(args.location);
-    setWeatherData(data);
-    return JSON.stringify(data);
+    if (call?.function?.name === "get_weather") {
+      const args = JSON.parse(call.function.arguments);
+      const data = getWeather(args.location);
+      setWeatherData(data);
+      return JSON.stringify(data);
+    } else if (call?.function?.name === "save_to_google_sheet") {
+      const args = JSON.parse(call.function.arguments);
+      const result = await save_to_google_sheet({
+        name: args.name,
+        email: args.email,
+        phone_number: args.phone_number,
+        age: args.age,
+        plan_summary: args.plan_summary,
+      });
+      return JSON.stringify(result);
+    }
+    return JSON.stringify({ error: "Tool not found" });
   };
 
   // return (

@@ -5,10 +5,11 @@ import { assistantId } from "./assistant-config";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
-  title: "Assistants API Quickstart",
-  description: "A quickstart template using the Assistants API with OpenAI",
+  title: "PNB Metlife Insurance Chatbot",
+  description:
+    "A chatbot to answer the query related to insurance offered by PNB MetLife",
   icons: {
-    icon: "/openai.svg",
+    icon: "/favicon.ico",
   },
 };
 

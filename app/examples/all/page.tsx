@@ -5,7 +5,6 @@ import styles from "./page.module.css";
 import Chat from "../../components/chat";
 import WeatherWidget from "../../components/weather-widget";
 import { getWeather } from "../../utils/weather";
-import { save_to_google_sheet } from "../../utils/google_sheet_api";
 import FileViewer from "../../components/file-viewer";
 
 const FunctionCalling = () => {
@@ -19,14 +18,23 @@ const FunctionCalling = () => {
       return JSON.stringify(data);
     } else if (call?.function?.name === "save_to_google_sheet") {
       const args = JSON.parse(call.function.arguments);
-      const result = await save_to_google_sheet({
-        name: args.name,
-        email: args.email,
-        phone_number: args.phone_number,
-        age: args.age,
-        plan_summary: args.plan_summary,
-      });
-      return JSON.stringify(result);
+      try {
+        const response = await fetch("/api/google-sheets", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(args),
+        });
+        const result = await response.json();
+        return JSON.stringify(result);
+      } catch (error) {
+        console.error("Error calling save_to_google_sheet API:", error);
+        return JSON.stringify({
+          success: false,
+          message: "Failed to save data to Google Sheet.",
+        });
+      }
     }
     return JSON.stringify({ error: "Tool not found" });
   };

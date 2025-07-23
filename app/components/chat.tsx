@@ -34,6 +34,26 @@ const AssistantMessage = ({
   text: string;
   isTyping?: boolean;
 }) => {
+  const [currentTypingMessageIndex, setCurrentTypingMessageIndex] = useState(0);
+  const typingMessages = [
+    "Thinking...",
+    "Formulating response...",
+    "Analyzing data...",
+    "Consulting knowledge base...",
+  ];
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isTyping) {
+      interval = setInterval(() => {
+        setCurrentTypingMessageIndex(
+          (prevIndex) => (prevIndex + 1) % typingMessages.length
+        );
+      }, 1000); // Change message every 1 second
+    }
+    return () => clearInterval(interval);
+  }, [isTyping, typingMessages.length]);
+
   // Regex to match the reference pattern like 【4:0†bima_yojana_micro-insurance_part_1.md】.
   // This pattern matches a Chinese opening square bracket, followed by any characters
   // that are not a Chinese closing square bracket, and then the Chinese closing square bracket.
@@ -42,7 +62,9 @@ const AssistantMessage = ({
   return (
     <div className={styles.assistantMessage}>
       {isTyping ? (
-        <span className={styles.typingIndicator}>...</span>
+        <span className={styles.typingIndicator}>
+          {typingMessages[currentTypingMessageIndex]}
+        </span>
       ) : (
         <Markdown remarkPlugins={[remarkGfm]}>{cleanedText}</Markdown>
       )}
@@ -130,6 +152,21 @@ const Chat = ({
       setThreadId(data.threadId);
     };
     createThread();
+  }, []);
+
+  // Display initial assistant message
+  useEffect(() => {
+    setMessages((prevMessages) => {
+      if (prevMessages.length === 0) {
+        return [
+          {
+            role: "assistant",
+            text: "I am PNB MetLife Insurance Plans assistant that can help you with family plans, group insurance plans and rider plans?",
+          },
+        ];
+      }
+      return prevMessages;
+    });
   }, []);
 
   const sendMessage = async (text) => {

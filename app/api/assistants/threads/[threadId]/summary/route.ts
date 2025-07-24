@@ -19,8 +19,11 @@ export async function GET(
       messages: [
         {
           role: "system",
-          content: "Below is a conversation between a user and an assistant. Please extract **only the names of the insurance plans** mentioned—no descriptions, duplicates, punctuation, or extra words. Return each plan name on a new line.",
-        },
+          content: `Below is a conversation between a user and an assistant.
+          Summarize only the user’s messages in a clear and concise way.
+          Preserve all key information the user asked for, including specific insurance plan names (e.g., Aajeevan Suraksha), types of coverage (e.g., group insurance, critical illness), requests for comparisons, or any plan details they asked about.
+          Ignore assistant responses entirely. The summary should reflect exactly what the user wanted to know, combining all their questions into a coherent summary.
+        `},
         { role: "user", content: conversation },
       ],
     });

@@ -10,6 +10,8 @@ export async function POST(req: Request) {
   // Ensure phone_number and plan_summary are null if undefined, to prevent columns from being skipped
   phone_number = phone_number ?? null;
   plan_summary = plan_summary ?? null;
+  email = email ?? null;
+  age = age ?? null;
 
   console.log("save_to_google_sheet function called with:", {
     name,

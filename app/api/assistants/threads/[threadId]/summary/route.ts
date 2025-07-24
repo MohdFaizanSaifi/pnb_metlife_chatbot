@@ -19,11 +19,13 @@ export async function GET(
       messages: [
         {
           role: "system",
-          content: `Below is a conversation between a user and an assistant.
-          Summarize only the user’s messages in a clear and concise way.
-          Preserve all key information the user asked for, including specific insurance plan names (e.g., Aajeevan Suraksha), types of coverage (e.g., group insurance, critical illness), requests for comparisons, or any plan details they asked about.
-          Ignore assistant responses entirely. The summary should reflect exactly what the user wanted to know, combining all their questions into a coherent summary.
-        `},
+          content: `
+          You will be provided with a chat transcript between a user and an assistant discussing insurance plans. Your task is to summarize the chat by focusing on the following:
+
+          Identify and list the specific types of insurance plans the user showed interest in.
+          Highlight any detailed information the user inquired about regarding specific insurance plans.
+
+          `},
         { role: "user", content: conversation },
       ],
     });

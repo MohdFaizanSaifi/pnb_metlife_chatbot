@@ -104,11 +104,29 @@ type ChatProps = {
   ) => Promise<string>;
 };
 
-const Chat = ({
-  functionCallHandler = async (call: RequiredActionFunctionToolCall) => {
+const Chat = ({ functionCallHandler: propFunctionCallHandler }: ChatProps) => {
+  const [userInput, setUserInput] = useState("");
+  const [messages, setMessages] = useState([]);
+  const [inputDisabled, setInputDisabled] = useState(false);
+  const [threadId, setThreadId] = useState("");
+
+  const functionCallHandler = async (call: RequiredActionFunctionToolCall) => {
     if (call?.function?.name === "save_to_google_sheet") {
       console.log("Tool is called ");
       const args: Person = JSON.parse(call.function.arguments);
+
+      let planSummary = "";
+      try {
+        const summaryResponse = await fetch(
+          `/api/assistants/threads/${threadId}/summary`
+        );
+        const summaryData = await summaryResponse.json();
+        planSummary = summaryData.planSummary || "No specific plan discussed";
+      } catch (error) {
+        console.error("Error fetching plan summary:", error);
+        planSummary = "Error fetching plan summary";
+      }
+
       const response = await fetch("/api/google-sheets", {
         method: "POST",
         headers: {
@@ -117,21 +135,20 @@ const Chat = ({
         body: JSON.stringify({
           name: args.name,
           email: args.email,
-          phone_number: args.phone_number, // Changed from args.phoneNumber to args.phone_number
+          phone_number: args.phone_number,
           age: args.age,
-          // Removed plan_summary from the body, as it will be handled by the assistant's response.
+          plan_summary: planSummary,
         }),
       });
       const data = await response.json();
       return JSON.stringify(data);
     }
-    return ""; // default to return empty string
-  },
-}: ChatProps) => {
-  const [userInput, setUserInput] = useState("");
-  const [messages, setMessages] = useState([]);
-  const [inputDisabled, setInputDisabled] = useState(false);
-  const [threadId, setThreadId] = useState("");
+    // If a propFunctionCallHandler is provided, use it, otherwise return an empty string.
+    if (propFunctionCallHandler) {
+      return propFunctionCallHandler(call);
+    }
+    return "";
+  };
 
   // automatically scroll to bottom of chat
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
